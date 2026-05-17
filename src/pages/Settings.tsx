@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Card, SectionTitle } from "@/components/Card";
 import { useTheme } from "@/lib/theme";
-import { Download, Moon, Sun, Trash2, Upload } from "lucide-react";
+import { Download, FileJson, Moon, Sun, Trash2, Upload } from "lucide-react";
 
 const DATA_KEYS = ["tasks", "notes", "goals", "projects"] as const;
 
@@ -9,6 +9,17 @@ export default function Settings() {
   const { theme, toggle } = useTheme();
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleFiles = (files: FileList | null) => {
+    const f = files?.[0];
+    if (!f) return;
+    if (!/\.json$/i.test(f.name) && f.type !== "application/json") {
+      setMessage({ kind: "err", text: "Please drop a .json backup file." });
+      return;
+    }
+    importData(f);
+  };
 
   const clearAll = () => {
     if (!confirm("Clear all local data (tasks, notes, goals, projects)?")) return;
@@ -94,24 +105,6 @@ export default function Settings() {
             Export JSON
           </button>
           <button
-            onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2.5 text-sm font-medium transition hover:bg-muted"
-          >
-            <Upload className="h-4 w-4" />
-            Import JSON
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) importData(f);
-              e.target.value = "";
-            }}
-          />
-          <button
             onClick={clearAll}
             className="flex items-center gap-2 rounded-xl bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-500/25 dark:text-red-300"
           >
@@ -119,6 +112,67 @@ export default function Settings() {
             Clear all data
           </button>
         </div>
+
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Import JSON backup. Click, press Enter, or drop a file here."
+          onClick={() => fileRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              fileRef.current?.click();
+            }
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+            if (!dragOver) setDragOver(true);
+          }}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            if (e.currentTarget === e.target) setDragOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            handleFiles(e.dataTransfer.files);
+          }}
+          className={`mt-4 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary ${
+            dragOver
+              ? "border-primary bg-primary/10 scale-[1.01]"
+              : "border-border bg-muted/30 hover:border-primary/60 hover:bg-muted/50"
+          }`}
+        >
+          <div
+            className={`grid h-10 w-10 place-items-center rounded-full transition-colors ${
+              dragOver ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {dragOver ? <FileJson className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
+          </div>
+          <p className="text-sm font-medium">
+            {dragOver ? "Drop to restore backup" : "Drag & drop a JSON backup"}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            or <span className="underline">click / press Enter</span> to choose a file
+          </p>
+        </div>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            handleFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
         {message && (
           <p
             className={`mt-3 text-xs ${
