@@ -211,6 +211,71 @@ npm run preview
 
 ---
 
+## 📦 Repository vs Deployment Zip Structure
+
+To remove any ambiguity about **what lives in Git** vs **what actually ships to Azure**, here's the side-by-side layout.
+
+### 🗂️ Repository structure (what's in GitHub)
+
+```text
+zenflow-dashboard/                  # ✅ committed to Git
+├── public/                         # static assets copied as-is by Vite
+│   └── favicon.svg
+├── src/                            # application source (TypeScript + React)
+│   ├── components/
+│   ├── pages/
+│   ├── lib/
+│   ├── App.tsx
+│   ├── main.tsx
+│   ├── styles.css
+│   └── vite-env.d.ts
+├── index.html                      # Vite HTML shell (source, not built output)
+├── package.json                    # scripts: dev / build / preview
+├── package-lock.json
+├── tsconfig.json
+├── vite.config.ts
+├── README.md
+└── .gitignore                      # excludes node_modules/, dist/, .env*
+```
+
+> 🚫 **Never committed:** `node_modules/`, `dist/`, `.env*`, local IDE files.
+
+### 🏗️ Build output (`npm run build` produces)
+
+```text
+dist/                               # 🛠️ generated, never committed
+├── index.html                      # hashed entrypoint (references /assets/*)
+└── assets/                         # content-hashed JS, CSS, images
+    ├── index-[hash].js
+    ├── index-[hash].css
+    └── ...
+```
+
+### 📦 Deployment zip structure (`app.zip` shipped to Azure)
+
+The Classic Pipeline archives the **contents of `dist/`** at the zip root — not the `dist/` folder itself. This is what Azure App Service unpacks into `/home/site/wwwroot`.
+
+```text
+app.zip                             # 🚀 the only artifact sent to Azure
+├── index.html                      # ← was dist/index.html
+└── assets/                         # ← was dist/assets/
+    ├── index-[hash].js
+    ├── index-[hash].css
+    └── ...
+```
+
+> ✅ **Result on Azure:** `/home/site/wwwroot/index.html` + `/home/site/wwwroot/assets/` — served by `pm2 serve ... --spa`.
+
+| Layer | Contains | Source / Tooling | Excluded |
+|---|---|---|---|
+| **GitHub repo** | `src/`, `public/`, configs, `index.html` | committed by developer | `node_modules/`, `dist/`, `.env*` |
+| **Build output** | `dist/index.html`, `dist/assets/` | produced by `npm run build` | source files, configs |
+| **Deployment zip** | `index.html`, `assets/` (flat) | produced by Archive Files task | `dist/` wrapper folder, source, `node_modules/` |
+
+---
+
+
+
 ## ☁️ Azure Deployment Steps
 
 > 🧱 **Dist-only deployment:** Only the contents of the `dist/` folder are shipped to Azure. Source code, `node_modules`, and dev tooling never reach the web app — the build is fully static (`dist/index.html` + `dist/assets/`).
