@@ -213,15 +213,26 @@ npm run preview
 
 ## ☁️ Azure Deployment Steps
 
+> 🧱 **Dist-only deployment:** Only the contents of the `dist/` folder are shipped to Azure. Source code, `node_modules`, and dev tooling never reach the web app — the build is fully static (`dist/index.html` + `dist/assets/`).
+
 | Step | Action |
 |---|---|
 | **1️⃣** | Create an **Azure Linux Web App** (Node 22 LTS) inside a resource group (`zenflow-rg`) |
 | **2️⃣** | Create an **Azure Service Connection** in Azure DevOps (ARM, scoped to the subscription) |
-| **3️⃣** | Configure a **Classic Build Pipeline** → Node installer → `npm install` → `npm run build` → archive `dist/` → publish artifact |
+| **3️⃣** | Configure a **Classic Build Pipeline** → Node installer → `npm install` → `npm run build` → **archive only `dist/`** (root folder = `$(System.DefaultWorkingDirectory)/dist`) → publish artifact as `app.zip` |
 | **4️⃣** | Configure a **Classic Release Pipeline** with the build artifact as source, CD trigger enabled |
-| **5️⃣** | Add an **Azure App Service Deploy** task pointing to `app.zip`, then deploy to production |
+| **5️⃣** | Add an **Azure App Service Deploy** task pointing to `app.zip` (contents: `index.html` + `assets/`), then deploy to production |
 
-Startup command for SPA hosting on Linux App Service:
+**Archive task config (Classic Pipeline):**
+
+```yaml
+Root folder or file to archive: $(System.DefaultWorkingDirectory)/dist
+Archive type:                   zip
+Archive file to create:         $(Build.ArtifactStagingDirectory)/app.zip
+Prepend root folder name:       false   # ship dist contents at zip root
+```
+
+Startup command for SPA hosting on Linux App Service (serves `dist/` contents from `/home/site/wwwroot`):
 
 ```bash
 pm2 serve /home/site/wwwroot --no-daemon --spa
