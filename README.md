@@ -325,6 +325,84 @@ git push  →  CI build  →  artifact  →  CD release  →  Azure App Service 
 
 ---
 
+## 🩺 Troubleshooting
+
+Common issues hit during `npm run build` and Azure unpacking — with verified fixes.
+
+### 1. `dist/` folder is missing or empty after build
+
+**Symptoms:** `npm run build` finishes but `dist/index.html` or `dist/assets/` is absent; the pipeline's Archive task fails with `No files found`.
+
+**Causes & fixes:**
+- Build silently failed earlier — re-run with `npm run build --verbose` and inspect the log.
+- Wrong working directory in the pipeline — set the Build step's **Working Directory** to `$(System.DefaultWorkingDirectory)`.
+- A previous `dist/` was cached as empty — add a pre-build step: `rm -rf dist` (or a `Delete Files` task) before `npm run build`.
+- Node version mismatch — pin Node in the pipeline: **Node.js Tool Installer → 22.x** (matches the Azure Linux Web App runtime).
+
+### 2. Azure unpacks the zip but the site shows `403` / blank page
+
+**Symptoms:** Deployment succeeds, but `https://<app>.azurewebsites.net` returns `403`, `404`, or a blank page. SSH into the container shows `/home/site/wwwroot/dist/index.html` instead of `/home/site/wwwroot/index.html`.
+
+**Cause:** The Archive task wrapped the `dist/` folder inside the zip instead of zipping its contents.
+
+**Fix:** In the **Archive Files** task, set:
+```yaml
+Root folder or file to archive: $(System.DefaultWorkingDirectory)/dist
+Prepend root folder name:       false   # 🚨 must be false
+```
+With `Prepend root folder name: true`, the zip becomes `app.zip/dist/index.html` — Azure unpacks it to `wwwroot/dist/...` and `pm2 serve /home/site/wwwroot` finds no `index.html`.
+
+### 3. Page loads but JS/CSS return `404` (assets not found)
+
+**Symptoms:** `index.html` loads, but the browser console shows `GET /assets/index-[hash].js 404` or MIME-type errors.
+
+**Causes & fixes:**
+- **Wrong `base` path in `vite.config.ts`** — for root-domain hosting (default Azure Web App URL), `base` must be `'/'`:
+  ```ts
+  export default defineConfig({ base: '/', plugins: [react()] })
+  ```
+  Only set `base: '/subpath/'` if the app is served from a subpath.
+- **Assets folder was excluded from the zip** — verify the Archive task includes the whole `dist/` tree (no `Exclusion patterns` filtering `assets/**`).
+- **Stale browser cache after a redeploy** — hard-refresh (`Ctrl+Shift+R`) to pick up new hashed filenames.
+
+### 4. Client-side routes 404 on refresh (e.g. `/projects` reloads to 404)
+
+**Symptoms:** In-app navigation works; refreshing a deep link returns Azure's default `404`.
+
+**Fix:** Ensure the startup command uses the **SPA flag** so all routes fall back to `index.html`:
+```bash
+pm2 serve /home/site/wwwroot --no-daemon --spa
+```
+Configure in **Azure Portal → Web App → Configuration → General settings → Startup Command**.
+
+### 5. `npm install` fails in the pipeline (`EACCES` / lockfile mismatch)
+
+**Symptoms:** Build agent errors on `npm install` with permission or `npm ci` lockfile errors.
+
+**Fixes:**
+- Prefer `npm ci` over `npm install` in CI for reproducible installs — requires `package-lock.json` to be committed.
+- If lockfile drift is the error, run `npm install` locally, commit the updated `package-lock.json`, and re-run the pipeline.
+- For `EACCES`, add a clean step as a last resort: `rm -rf node_modules package-lock.json && npm install`.
+
+### 6. Deployment succeeds but old version is still served
+
+**Symptoms:** Pipeline is green; the live site shows previous content.
+
+**Fixes:**
+- Restart the Web App: **Azure Portal → Overview → Restart** (forces PM2 to reload).
+- Confirm the Release pipeline targets the correct **Slot** (not a staging slot that wasn't swapped).
+- Test in Incognito to rule out browser cache.
+
+### 7. Environment variables (`VITE_*`) are `undefined` in production
+
+**Symptoms:** `import.meta.env.VITE_API_URL` is `undefined` after deploy.
+
+**Cause:** `VITE_*` vars are **inlined at build time**, not read at runtime. Setting them in Azure App Settings *after* the build has no effect.
+
+**Fix:** Define `VITE_*` vars as **pipeline variables** in the Build pipeline (CI) so they're present during `npm run build`. Rebuild after any change.
+
+---
+
 ## ⚡ Performance Optimizations
 
 - **Vite ESBuild bundling** — sub-second cold starts in dev
