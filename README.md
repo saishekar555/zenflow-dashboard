@@ -1,6 +1,6 @@
 <div align="center">
 
-# �ern ZenFlow Dashboard
+ ZenFlow Dashboard
 
 ### ⚡ Enterprise-Grade Analytics Dashboard · React + Vite · Azure Cloud · Azure DevOps CI/CD
 
