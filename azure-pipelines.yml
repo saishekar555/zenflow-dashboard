@@ -24,17 +24,17 @@ steps:
   displayName: Build and Push Image
   inputs:
     command: buildAndPush
-    repository: $(imageRepository)
+    repository: zenflow
     dockerfile: Dockerfile
-    containerRegistry: acr-connection
+    containerRegistry: careeracr12345-acr
     tags: |
-      $(tag)
+      $(Build.BuildId)
 
 - task: KubernetesManifest@1
   displayName: Deploy to AKS
   inputs:
     action: deploy
-    kubernetesServiceConnection: aks-connection
+    kubernetesServiceConnection: zenflow-aks-connection
     manifests: |
       deployment.yaml
       service.yaml
