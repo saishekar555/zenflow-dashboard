@@ -20,15 +20,13 @@ steps:
     npm run build
   displayName: Build Application
 
-- task: Docker@2
+- - task: Docker@2
   displayName: Build and Push Image
   inputs:
     command: buildAndPush
     repository: zenflow
     dockerfile: dockerfile
     containerRegistry: careeracr12345-acr
-    tags: |
-      $(Build.BuildId)
 
 - task: KubernetesManifest@1
   displayName: Deploy to AKS
