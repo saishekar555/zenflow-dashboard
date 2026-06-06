@@ -25,7 +25,7 @@ steps:
   inputs:
     command: buildAndPush
     repository: zenflow
-    dockerfile: Dockerfile
+    dockerfile: dockerfile
     containerRegistry: careeracr12345-acr
     tags: |
       $(Build.BuildId)
