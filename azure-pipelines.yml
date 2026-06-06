@@ -20,6 +20,21 @@ steps:
     npm run build
   displayName: Build Application
 
+- task: SonarQubePrepare@7
+  inputs:
+    SonarQube: 'sonarqube-connection'
+    scannerMode: 'CLI'
+    configMode: 'manual'
+    cliProjectKey: 'zenflow-dashboard'
+    cliProjectName: 'Zenflow Dashboard'
+    cliSources: '.'
+
+- task: SonarQubeAnalyze@7
+
+- task: SonarQubePublish@7
+  inputs:
+    pollingTimeoutSec: '300'
+
 - task: Docker@2
   displayName: Build and Push Image
   inputs:
@@ -27,12 +42,14 @@ steps:
     repository: zenflow
     dockerfile: dockerfile
     containerRegistry: careeracr12345-acr
+    tags: |
+      $(Build.BuildId)
 
 - task: KubernetesManifest@1
   displayName: Deploy to AKS
   inputs:
     action: deploy
-    kubernetesServiceConnection: zenflow-aks-connection
+    kubernetesServiceConnection: 'zenflow-aks-connection'
     manifests: |
       deployment.yaml
       service.yaml
