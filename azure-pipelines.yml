@@ -1,0 +1,40 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  imageRepository: zenflow
+  containerRegistry: careeracr12345.azurecr.io
+  tag: $(Build.BuildId)
+
+steps:
+
+- task: NodeTool@0
+  inputs:
+    versionSpec: '22.x'
+
+- script: |
+    npm install
+    npm run build
+  displayName: Build Application
+
+- task: Docker@2
+  displayName: Build and Push Image
+  inputs:
+    command: buildAndPush
+    repository: $(imageRepository)
+    dockerfile: Dockerfile
+    containerRegistry: acr-connection
+    tags: |
+      $(tag)
+
+- task: KubernetesManifest@1
+  displayName: Deploy to AKS
+  inputs:
+    action: deploy
+    kubernetesServiceConnection: aks-connection
+    manifests: |
+      deployment.yaml
+      service.yaml
