@@ -20,7 +20,7 @@ steps:
     npm run build
   displayName: Build Application
 
-- - task: Docker@2
+- task: Docker@2
   displayName: Build and Push Image
   inputs:
     command: buildAndPush
