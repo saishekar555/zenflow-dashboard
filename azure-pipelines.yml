@@ -20,20 +20,6 @@ steps:
     npm run build
   displayName: Build Application
 
-- task: SonarQubePrepare@7
-  inputs:
-    SonarQube: 'sonarqube-connection'
-    scannerMode: 'CLI'
-    configMode: 'manual'
-    cliProjectKey: 'zenflow-dashboard'
-    cliProjectName: 'Zenflow Dashboard'
-    cliSources: '.'
-
-- task: SonarQubeAnalyze@7
-
-- task: SonarQubePublish@7
-  inputs:
-    pollingTimeoutSec: '300'
 
 - task: Docker@2
   displayName: Build and Push Image
